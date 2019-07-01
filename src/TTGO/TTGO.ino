@@ -1,3 +1,4 @@
+// Board type: ESP32 dev mod
 //WIFI + Server
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -34,16 +35,68 @@ RBD::Button middle_button(34);
 RBD::Button right_button(39);*/
 
 
-void drawText(char *text) {
-  tft.setCursor(0, 0);
-  tft.setTextSize(1);
-  tft.setTextColor(ST7735_GREEN);
-  tft.setTextWrap(true);
-  tft.print(text);
-}
-
 void handleRoot() {
   server.send(200, "text/plain", "hello from esp8266!");
+}
+
+//Data for the info-screens
+String localMsg;
+String temp;
+String hum;
+
+//The current info screen
+enum screens {MSG, WEATHER, MISC};
+int currScreen = screens::WEATHER;
+
+void handleData() {
+  if(server.args() == 0) {
+    server.send(200, "text/plain", "You need to include arguments with the data");
+    return;
+  }
+
+  //parse the received strings to the chars[]
+  if(server.arg("temp").length() > 0) {
+    temp = server.arg("temp");
+    Serial.print("temperature: ");
+    Serial.println(temp);
+  }
+  if(server.arg("hum").length() > 0) {
+    hum = server.arg("hum");
+    Serial.print("humidity: ");
+    Serial.println(hum);
+  }
+  if(server.arg("msg").length() > 0) {
+    localMsg = server.arg("msg");
+    Serial.print("Received msg: ");
+    Serial.println(localMsg);
+  }
+
+  if(currScreen = screens::WEAHTER){
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    
+    tft.print("Temp: ");
+    char tempBuff[temp.length()+1];
+    temp.toCharArray(tempBuff, temp.length()+1);
+    tft.print(tempBuff);
+    tft.print("°\n");
+    
+    tft.print("Fugt: ");
+    char humBuff[hum.length()+1];
+    hum.toCharArray(humBuff, hum.length()+1);
+    tft.print(humBuff);
+    tft.print("%");
+  }
+
+  
+  String returnMsg = temp;
+  returnMsg += ", "; 
+  returnMsg += hum;
+  returnMsg +=", ";
+  returnMsg += localMsg;
+  
+  server.send(200, "text/plain", returnMsg);
 }
 
 void handleNotFound() {
@@ -82,6 +135,8 @@ void initServer() {
 
   //setup different functions for different server-calls
   server.on("/", handleRoot);
+  server.on("/send", handleData);
+  
   server.on("/inline", []() {
     server.send(200, "text/plain", "this works as well");
   });
@@ -112,8 +167,14 @@ void setup(void) {
   tft.setTextWrap(true);
   tft.setTextSize(1);
   tft.setTextColor(ST7735_GREEN);
-
-  drawText(WiFi.localIP());
+  IPAddress localAddr = WiFi.localIP();
+  byte oct1 = localAddr[0];
+  byte oct2 = localAddr[1];
+  byte oct3 = localAddr[2];
+  byte oct4 = localAddr[3];
+  char s[16];  
+  sprintf(s, "%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+  tft.print(s);
 
 }
 void loop(void) {
