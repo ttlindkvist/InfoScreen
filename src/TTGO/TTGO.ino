@@ -77,17 +77,16 @@ void handleData() {
     tft.setTextSize(2);
     tft.setCursor(0, 0);
     
-    tft.print("Temp: ");
+    tft.print("Temp ");
     char tempBuff[temp.length()+1];
     temp.toCharArray(tempBuff, temp.length()+1);
     tft.print(tempBuff);
-    tft.print("°\n");
+    tft.print("\n");
     
-    tft.print("Fugt: ");
+    tft.print("Fugt ");
     char humBuff[hum.length()+1];
     hum.toCharArray(humBuff, hum.length()+1);
     tft.print(humBuff);
-    tft.print("%");
   }
 
   
