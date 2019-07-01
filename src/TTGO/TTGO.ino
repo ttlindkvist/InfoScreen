@@ -37,6 +37,7 @@ RBD::Button right_button(39);*/
 
 void handleRoot() {
   server.send(200, "text/plain", "hello from esp8266!");
+  Serial.println("Received");
 }
 
 //Data for the info-screens
@@ -71,7 +72,7 @@ void handleData() {
     Serial.println(localMsg);
   }
 
-  if(currScreen = screens::WEAHTER){
+  if(currScreen = screens::WEATHER){
     tft.fillScreen(ST77XX_BLACK);
     tft.setTextSize(2);
     tft.setCursor(0, 0);
