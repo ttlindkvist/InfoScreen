@@ -6,15 +6,13 @@
 // - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
 
 #include "DHT.h"
+#include <ESP8266WiFi.h>
 
 #define DHTPIN 2     // Digital pin connected to the DHT sensor
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 // Pin 15 can work but DHT must be disconnected during program upload.
 
-// Uncomment whatever type you're using!
-//#define DHTTYPE DHT11   // DHT 11
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-//#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Connect pin 1 (on the left) of the sensor to +5V
 // NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
@@ -29,9 +27,24 @@
 // as the current DHT reading algorithm adjusts itself to work on faster procs.
 DHT dht(DHTPIN, DHTTYPE);
 
+//HTTP related
+const char* ssid = "WIM";
+const char* password = "mercedeS24";
+
+const char* host = "192.168.2.66";
+
+
 void setup() {
-  Serial.begin(9600);
-  Serial.println(F("DHTxx test!"));
+  Serial.begin(115200);
+  
+  Serial.printf("Connecting to %s ", ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" connected");
 
   dht.begin();
 }
@@ -39,7 +52,6 @@ void setup() {
 void loop() {
   // Wait a few seconds between measurements.
   delay(2000);
-
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   float h = dht.readHumidity();
@@ -70,4 +82,38 @@ void loop() {
   Serial.print(F("°C "));
   Serial.print(hif);
   Serial.println(F("°F"));
+
+  WiFiClient client;
+
+  Serial.printf("\n[Connecting to %s ... ", host);
+  if (client.connect(host, 80))
+  {
+    Serial.println("connected]");
+
+    Serial.println("[Sending a request]");
+    client.print(String("GET /send?temp=") + String(t) + "&hum=" + String(h) + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n" +
+                 "\r\n"
+                );
+
+    Serial.println("[Response:]");
+    while (client.connected() || client.available())
+    {
+      if (client.available())
+      {
+        String line = client.readStringUntil('\n');
+        Serial.println(line);
+      }
+    }
+    client.stop();
+    Serial.println("\n[Disconnected]");
+  }
+  else
+  {
+    Serial.println("connection failed!]");
+    client.stop();
+  }
+
+  
 }
