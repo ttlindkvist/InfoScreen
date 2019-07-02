@@ -137,15 +137,15 @@ void updateScreen(bool manualChange) {
           tft.drawFastVLine(x, y, l, 0xFFFFFF);
         }
       }
-      newCursor(1, ST7735_GREEN, 0, 112);
+      newCursor(1, 0xFFFFFF, 0, 112);
+      tft.print("min ");
+      tft.setTextColor(ST7735_GREEN);
       tft.print(_min);
+      tft.setTextColor(0xFFFFFF);
       tft.setCursor(0, 35);
-      if(scale != 10){
-        tft.print(_max);
-      }
-      else{
-        tft.print(_min+minTempDelta);
-      }
+      tft.print("max ");
+      tft.setTextColor(ST7735_GREEN);
+      tft.print(_max);
     }
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
