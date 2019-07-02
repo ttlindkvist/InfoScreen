@@ -73,7 +73,15 @@ void updateScreen(bool manualChange) {
   if(currScreen == screens::MSG) {
     tft.fillScreen(ST77XX_BLACK);
     newCursor(2, ST7735_GREEN, 0, 0);
-    tft.print("MSG");
+    tft.print("MESSAGE\n");
+    tft.setTextSize(1);
+    tft.setTextColor(0xFFFFFF);
+    tft.print(localMsg);
+    //Bottom text
+    newCursor(1, ST7735_GREEN, 4, 120);
+    tft.print(" msg   ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print("vejr   misc");
   }
   else if(currScreen == screens::WEATHER) {
     tft.fillScreen(ST77XX_BLACK);
@@ -91,7 +99,6 @@ void updateScreen(bool manualChange) {
     tft.print(humBuff);
 
     //Print the last measurements as a graph
-    
     if(!tempData.empty()){
       /*
       float _min = *std::min_element(tempData.begin(), tempData.end());
@@ -111,17 +118,18 @@ void updateScreen(bool manualChange) {
       float diff = _max-_min;
       float scale = 10; //10 pixels per degree
       float minTempDelta = 6.5;
-      //Unless the difference is larger than the minTempDelta degrees, then a new scale is calculated
+      //A new scale is calculated if the difference is larger than the minTempDelta
       if(diff > minTempDelta){
         scale = minTempDelta*scale/diff;
       }
-      Serial.println(scale);
+      int lastY = 0;
       for(int i = 0; i<tempData.size(); i++){
         int x = i;
-        int y = 110 - (tempData[i]-_min)*scale;
-        Serial.println(String(x) + String(", ") + String(y));
-        float l = (110 - (tempData[i-1]-_min)*scale)-y;
-        l = l<0 ? ceil(l) : l;
+        //Calculates the position on the temperature interval and then centeres the graph
+        int y = 110 - (tempData[i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
+        float l = lastY - y;
+        lastY = y;
+        l = l<0 ? floor(l) : l;
         if(i == 0 || (int)l == 0){
           tft.drawPixel(x, y, 0xFFFFFF);  
         }
@@ -139,17 +147,40 @@ void updateScreen(bool manualChange) {
         tft.print(_min+minTempDelta);
       }
     }
+    //Bottom text
+    newCursor(1, 0xFFFFFF, 4, 120);
+    tft.print(" msg   ");
+    tft.setTextColor(ST7735_GREEN);
+    tft.print("vejr   ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print("misc");
   }
   else if(currScreen == screens::MISC) {
     tft.fillScreen(ST77XX_BLACK);
     newCursor(2, ST7735_GREEN, 0, 0);
-    tft.print("MISC");
+    tft.print("MISC INFO\n");
+    tft.setTextSize(1);
+    tft.print("\nConnected to: ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print(ssid);
+    tft.setTextColor(ST7735_GREEN);
+    tft.print("\n\nIP: ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print(WiFi.localIP());
+    tft.setTextColor(ST7735_GREEN);
+    tft.print("\n\nUpdate freq: ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print("0.2 Hz");
+    tft.setTextColor(ST7735_GREEN);
+    tft.print("\n\nMade by: ");
+    tft.setTextColor(0xFFFFFF);
+    tft.print("TTL");
+    //Bottom text
+    newCursor(1, 0xFFFFFF, 4, 120);
+    tft.print(" msg   vejr   ");
+    tft.setTextColor(ST7735_GREEN);
+    tft.print("misc");
   }
-
-
-  //Bottom text
-  newCursor(1, 0xFFFFFF, 4, 120);
-  tft.print(" msg   vejr   misc");
 }
 
 
@@ -173,7 +204,6 @@ void handleData() {
     server.send(200, "text/plain", "You need to include arguments with the data");
     return;
   }
-
   //Transfer arguments to stored vars
   if(server.arg("temp").length() > 0) {
     lastTemp = temp;
@@ -195,13 +225,8 @@ void handleData() {
     Serial.print("Received msg: ");
     Serial.println(localMsg);
     hasFirstData = true;
+    updateScreen(false);
   }
-
-  //Update the screen with the new data
-  if(currScreen == screens::MSG && lastMsg != localMsg){
-    updateScreen(false);    
-  }
-  
   server.send(200, "text/plain", temp + String(", ") + hum + String(", ") + localMsg);
 }
 
@@ -229,9 +254,6 @@ void initServer() {
   //Setup different functions for different server-calls
   server.on("/", handleRoot);
   server.on("/send", handleData);
-  server.on("/inline", []() {
-    server.send(200, "text/plain", "this works as well");
-  });
   server.onNotFound(handleNotFound);
   
   server.begin();
@@ -246,7 +268,6 @@ void setup(void) {
   //Setup the timer to fire every 5 seconds
   timer.setTimeout(5000);
   timer.restart();
-
 
   initServer();
 
@@ -267,7 +288,7 @@ void loop(void) {
   server.handleClient();
 
   if(timer.onRestart() && hasFirstData) {
-    Serial.println("5 seconds has elapsed");
+    //Serial.println("5 seconds has elapsed");
     tempData.push_back(temp.toFloat());
     humData.push_back(hum.toFloat());
 
