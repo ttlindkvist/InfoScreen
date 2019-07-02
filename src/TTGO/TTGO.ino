@@ -39,12 +39,6 @@ RBD::Button leftButton(35);
 RBD::Button middleButton(34);
 RBD::Button rightButton(39);
 
-
-
-void handleRoot() {
-  server.send(200, "text/plain", "hello from TTGO!");
-}
-
 //Data for the info-screens
 bool hasFirstData = false; // Shouldn't start storing data before the first data has been received
 
@@ -68,6 +62,10 @@ void newCursor(int s, uint16_t c, int x, int y) {
   tft.setTextColor(c);
   tft.setCursor(x,y);
 }
+void writeText(String t, uint16_t c){
+  tft.setTextColor(c);
+  tft.print(t);
+}
 
 void updateScreen(bool manualChange) {
   if(currScreen == screens::MSG) {
@@ -75,13 +73,11 @@ void updateScreen(bool manualChange) {
     newCursor(2, ST7735_GREEN, 0, 0);
     tft.print("MESSAGE\n");
     tft.setTextSize(1);
-    tft.setTextColor(0xFFFFFF);
-    tft.print(localMsg);
+    writeText(localMsg, 0xFFFFFF);
     //Bottom text
     newCursor(1, ST7735_GREEN, 4, 120);
     tft.print(" msg   ");
-    tft.setTextColor(0xFFFFFF);
-    tft.print("vejr   misc");
+    writeText("vejr   misc", 0xFFFFFF);
   }
   else if(currScreen == screens::WEATHER) {
     tft.fillScreen(ST77XX_BLACK);
@@ -139,21 +135,16 @@ void updateScreen(bool manualChange) {
       }
       newCursor(1, 0xFFFFFF, 0, 112);
       tft.print("min ");
-      tft.setTextColor(ST7735_GREEN);
-      tft.print(_min);
-      tft.setTextColor(0xFFFFFF);
+      writeText(String(_min), ST7735_GREEN);
       tft.setCursor(0, 35);
-      tft.print("max ");
-      tft.setTextColor(ST7735_GREEN);
-      tft.print(_max);
+      writeText("max ", 0xFFFFFF);
+      writeText(String(_max), ST7735_GREEN);
     }
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
     tft.print(" msg   ");
-    tft.setTextColor(ST7735_GREEN);
-    tft.print("vejr   ");
-    tft.setTextColor(0xFFFFFF);
-    tft.print("misc");
+    writeText("vejr   ", ST7735_GREEN);
+    writeText("misc", 0xFFFFFF);
   }
   else if(currScreen == screens::MISC) {
     tft.fillScreen(ST77XX_BLACK);
@@ -161,28 +152,21 @@ void updateScreen(bool manualChange) {
     tft.print("MISC INFO\n");
     tft.setTextSize(1);
     tft.print("\nConnected to: ");
-    tft.setTextColor(0xFFFFFF);
-    tft.print(ssid);
-    tft.setTextColor(ST7735_GREEN);
-    tft.print("\n\nIP: ");
+    writeText(String(ssid), 0xFFFFFF);
+    writeText("\n\nIP: ", ST7735_GREEN);
     tft.setTextColor(0xFFFFFF);
     tft.print(WiFi.localIP());
-    tft.setTextColor(ST7735_GREEN);
-    tft.print("\n\nUpdate freq: ");
-    tft.setTextColor(0xFFFFFF);
-    tft.print("0.2 Hz");
-    tft.setTextColor(ST7735_GREEN);
-    tft.print("\n\nMade by: ");
-    tft.setTextColor(0xFFFFFF);
-    tft.print("TTL");
+    writeText("\n\nUpdate freq: ", ST7735_GREEN);
+    writeText("0.2 Hz", 0xFFFFFF);
+    writeText("\n\nMade by: ", ST7735_GREEN);
+    writeText("TTL", 0xFFFFFF);
+
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
     tft.print(" msg   vejr   ");
-    tft.setTextColor(ST7735_GREEN);
-    tft.print("misc");
+    writeText("misc", ST7735_GREEN);
   }
 }
-
 
 void handleNotFound() {
   String message = "File Not Found\n\n";
@@ -228,6 +212,10 @@ void handleData() {
     updateScreen(false);
   }
   server.send(200, "text/plain", temp + String(", ") + hum + String(", ") + localMsg);
+}
+
+void handleRoot() {
+  server.send(200, "text/plain", "hello from TTGO!");
 }
 
 void initServer() {
