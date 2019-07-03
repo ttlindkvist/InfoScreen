@@ -39,23 +39,19 @@ RBD::Button leftButton(35);
 RBD::Button middleButton(34);
 RBD::Button rightButton(39);
 
-//Data for the info-screens
-bool hasFirstData = false; // Shouldn't start storing data before the first data has been received
+//Screen related
+enum screens {MSG, WEATHER, MISC};
+int currScreen = screens::WEATHER;
+enum dataTypes {TEMP1, HUM1, TEMP2, HUM2, EARTH2};
+int currGraph = dataTypes::TEMP1;
+String graphNames[5] = {"wTemp", "wHum", "sTemp", "sHum", "sEarth"};
+
+float _data[5] = {0, 0, 0, 0, 0};
+float _lastData[5]= {0, 0, 0, 0, 0};
+std::vector<float> graphData[5];
 
 String localMsg;
 String lastMsg;
-
-String temp = "00.00";
-String lastTemp = "00.00";
-std::vector<float> tempData;
-
-String hum = "00.00";
-String lastHum = "00.00";
-std::vector<float> humData;
-
-//The current info screen
-enum screens {MSG, WEATHER, MISC};
-int currScreen = screens::WEATHER;
 
 void newCursor(int s, uint16_t c, int x, int y) {
   tft.setTextSize(s);
@@ -67,7 +63,7 @@ void writeText(String t, uint16_t c){
   tft.print(t);
 }
 
-void updateScreen(bool manualChange) {
+void updateScreen() {
   if(currScreen == screens::MSG) {
     tft.fillScreen(ST77XX_BLACK);
     newCursor(2, ST7735_GREEN, 0, 0);
@@ -76,39 +72,35 @@ void updateScreen(bool manualChange) {
     writeText(localMsg, 0xFFFFFF);
     //Bottom text
     newCursor(1, ST7735_GREEN, 4, 120);
-    tft.print(" msg   ");
-    writeText("vejr   misc", 0xFFFFFF);
+    tft.print(" msg    ");
+    writeText("wthr   misc", 0xFFFFFF);
   }
   else if(currScreen == screens::WEATHER) {
     tft.fillScreen(ST77XX_BLACK);
     newCursor(2, ST7735_GREEN, 0, 0);
     
     tft.print("Temp ");
-    char tempBuff[temp.length()+1];
-    temp.toCharArray(tempBuff, temp.length()+1);
-    tft.print(tempBuff);
+    tft.print(_data[dataTypes::TEMP1]);
     tft.print("\n");
     
-    tft.print("Fugt ");
-    char humBuff[hum.length()+1];
-    hum.toCharArray(humBuff, hum.length()+1);
-    tft.print(humBuff);
+    tft.print("Hum  ");
+    tft.print(_data[dataTypes::HUM1]);
 
     //Print the last measurements as a graph
-    if(!tempData.empty()){
+    if(!graphData[currGraph].empty()){
       /*
-      float _min = *std::min_element(tempData.begin(), tempData.end());
-      float _max = *std::max_element(tempData.begin(), tempData.end());
+      float _min = *std::min_element(graphData[currGraph].begin(), graphData[currGraph].end());
+      float _max = *std::max_element(graphData[currGraph].begin(), graphData[currGraph].end());
       */
-      float _min = tempData[0];
-      float _max = tempData[0];
-      for(int i = 1; i<tempData.size(); i++)
+      float _min = graphData[currGraph][0];
+      float _max = graphData[currGraph][0];
+      for(int i = 1; i<graphData[currGraph].size(); i++)
       {
-        if(_min > tempData[i]){
-          _min = tempData[i];
+        if(_min > graphData[currGraph][i]){
+          _min = graphData[currGraph][i];
         }
-        if(_max < tempData[i]){
-          _max = tempData[i];
+        if(_max < graphData[currGraph][i]){
+          _max = graphData[currGraph][i];
         }
       }
       float diff = _max-_min;
@@ -119,10 +111,10 @@ void updateScreen(bool manualChange) {
         scale = minTempDelta*scale/diff;
       }
       int lastY = 0;
-      for(int i = 0; i<tempData.size(); i++){
+      for(int i = 0; i<graphData[currGraph].size(); i++){
         int x = i;
         //Calculates the position on the temperature interval and then centeres the graph
-        int y = 110 - (tempData[i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
+        int y = 110 - (graphData[currGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
         float l = lastY - y;
         lastY = y;
         l = l<0 ? floor(l) : l;
@@ -133,17 +125,19 @@ void updateScreen(bool manualChange) {
           tft.drawFastVLine(x, y, l, 0xFFFFFF);
         }
       }
-      newCursor(1, 0xFFFFFF, 0, 112);
-      tft.print("min ");
-      writeText(String(_min), ST7735_GREEN);
-      tft.setCursor(0, 35);
+      newCursor(1, 0xFFFFFF, 0, 35);
+      writeText(String(graphNames[currGraph]), ST7735_GREEN);
+      tft.setCursor(64, 35);
       writeText("max ", 0xFFFFFF);
       writeText(String(_max), ST7735_GREEN);
+      tft.setCursor(64, 112);
+      tft.print("min ");
+      writeText(String(_min), ST7735_GREEN);
     }
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
-    tft.print(" msg   ");
-    writeText("vejr   ", ST7735_GREEN);
+    tft.print(" msg    ");
+    writeText("wthr   ", ST7735_GREEN);
     writeText("misc", 0xFFFFFF);
   }
   else if(currScreen == screens::MISC) {
@@ -163,7 +157,7 @@ void updateScreen(bool manualChange) {
 
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
-    tft.print(" msg   vejr   ");
+    tft.print(" msg    wthr   ");
     writeText("misc", ST7735_GREEN);
   }
 }
@@ -189,29 +183,20 @@ void handleData() {
     return;
   }
   //Transfer arguments to stored vars
-  if(server.arg("temp").length() > 0) {
-    lastTemp = temp;
-    temp = server.arg("temp");
-    Serial.print("temperature: ");
-    Serial.println(temp);
-    hasFirstData = true;
-  }
-  if(server.arg("hum").length() > 0) {
-    lastHum = hum;
-    hum = server.arg("hum");
-    Serial.print("humidity: ");
-    Serial.println(hum);
-    hasFirstData = true;
+  for(int i = 0; i<5; i++){
+    if(server.arg(graphNames[i]).length() > 0) {
+      _lastData[i] = _data[dataTypes::TEMP1];
+      _data[i] = server.arg(graphNames[i]).toFloat();
+    }
   }
   if(server.arg("msg").length() > 0) {
     lastMsg = localMsg;
     localMsg = server.arg("msg");
     Serial.print("Received msg: ");
     Serial.println(localMsg);
-    hasFirstData = true;
-    updateScreen(false);
+    updateScreen();
   }
-  server.send(200, "text/plain", temp + String(", ") + hum + String(", ") + localMsg);
+  server.send(200, "text/plain", _data[dataTypes::TEMP1] + String(", ") + _data[dataTypes::HUM1] + String(", ") + localMsg);
 }
 
 void handleRoot() {
@@ -275,30 +260,38 @@ void setup(void) {
 void loop(void) {
   server.handleClient();
 
-  if(timer.onRestart() && hasFirstData) {
+  if(timer.onRestart()) {
     //Serial.println("5 seconds has elapsed");
-    tempData.push_back(temp.toFloat());
-    humData.push_back(hum.toFloat());
 
-    if(tempData.size() > 120){
-      tempData.erase(tempData.begin());
-      humData.erase(humData.begin());
+    for(int i = 0; i<5; i++){
+      graphData[i].push_back(_data[i]);
+    }
+    if(graphData[0].size() > 120){
+      for(int i = 0; i<5; i++){
+        graphData[i].erase(graphData[i].begin());
+      }
     }
     if(currScreen == screens::WEATHER) {
-      updateScreen(false);
+      updateScreen();
     }
   }
 
   if(leftButton.onPressed()){
     currScreen = screens::MSG;
-    updateScreen(true);
+    updateScreen();
   }
   else if(middleButton.onPressed()) {
-    currScreen = screens::WEATHER;
-    updateScreen(true);
+    if(currScreen == screens::WEATHER){
+      currGraph = (currGraph == dataTypes::EARTH2 ? dataTypes::TEMP1 : currGraph+1);
+      updateScreen();
+    }
+    else{
+      currScreen = screens::WEATHER;
+      updateScreen();
+    }
   }
   else if(rightButton.onPressed()) {
     currScreen = screens::MISC;
-    updateScreen(true);
+    updateScreen();
   }
 }
