@@ -43,7 +43,7 @@ RBD::Button rightButton(39);
 enum screens {MSG, WEATHER, MISC};
 int currScreen = screens::WEATHER;
 enum dataTypes {TEMP1, HUM1, TEMP2, HUM2, EARTH2};
-int currGraph = dataTypes::TEMP1;
+int currGraph = dataTypes::TEMP2;
 String graphNames[5] = {"wTemp", "wHum", "sTemp", "sHum", "sEarth"};
 
 float _data[5] = {0, 0, 0, 0, 0};
@@ -77,62 +77,144 @@ void updateScreen() {
   }
   else if(currScreen == screens::WEATHER) {
     tft.fillScreen(ST77XX_BLACK);
-    newCursor(2, ST7735_GREEN, 0, 0);
     
-    tft.print("Temp ");
-    tft.print(_data[dataTypes::TEMP1]);
-    tft.print("\n");
-    
-    tft.print("Hum  ");
-    tft.print(_data[dataTypes::HUM1]);
-
     //Print the last measurements as a graph
-    if(!graphData[currGraph].empty()){
-      /*
-      float _min = *std::min_element(graphData[currGraph].begin(), graphData[currGraph].end());
-      float _max = *std::max_element(graphData[currGraph].begin(), graphData[currGraph].end());
-      */
-      float _min = graphData[currGraph][0];
-      float _max = graphData[currGraph][0];
-      for(int i = 1; i<graphData[currGraph].size(); i++)
-      {
-        if(_min > graphData[currGraph][i]){
-          _min = graphData[currGraph][i];
+    if((currGraph == dataTypes::EARTH2) ? !graphData[currGraph].empty() : (!graphData[currGraph].empty() || !graphData[currGraph-2].empty())){
+      float _min = 0;
+      float _max = 0;
+      //Returns 42 if two graphs should be drawn, else returns the one graph that should be drawn
+      int whichGraph = currGraph == dataTypes::EARTH2 ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph-2].empty() ? 42 : (!graphData[currGraph].empty() ? currGraph : currGraph-2));
+      if(whichGraph != 42){
+        newCursor(2, ST7735_GREEN, 0, 0);
+        tft.print("Temp ");
+        tft.print((!graphData[dataTypes::TEMP2].empty()) ? _data[dataTypes::TEMP2] : _data[dataTypes::TEMP1]);
+        tft.print("\n");
+        
+        tft.print("Hum  ");
+        tft.print((!graphData[dataTypes::HUM2].empty()) ? _data[dataTypes::HUM2] : _data[dataTypes::HUM1]);
+        
+        _min = graphData[whichGraph][0];
+        _max = graphData[whichGraph][0];
+        for(int i = 1; i<graphData[whichGraph].size(); i++)
+        {
+          if(_min > graphData[whichGraph][i]){
+            _min = graphData[whichGraph][i];
+          }
+          if(_max < graphData[whichGraph][i]){
+            _max = graphData[whichGraph][i];
+          }
         }
-        if(_max < graphData[currGraph][i]){
-          _max = graphData[currGraph][i];
+        float diff = _max-_min;
+        float scale = 10; //10 pixels per degree
+        float minTempDelta = 6.5;
+        //A new scale is calculated if the difference is larger than the minTempDelta
+        if(diff > minTempDelta){
+          scale = minTempDelta*scale/diff;
+        }
+        int lastY = 0;
+  
+        for(int i = 0; i<graphData[whichGraph].size(); i++){
+          int x = 124 - i;
+          //Calculates the position on the temperature interval and then centeres the graph
+          int y = 110 - (graphData[whichGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
+          float l = lastY - y;
+          lastY = y;
+          l = l<0 ? floor(l) : l;
+          if(i == 0 || (int)l == 0){
+            tft.drawPixel(x, y, 0xFFFFFF);  
+          } else {
+            tft.drawFastVLine(x, y, l, 0xFFFFFF);
+          }
+        }
+      } else { /*DRAWING THE DOUBLE GRAPH*/
+        newCursor(2, ST7735_GREEN, 0, 0);
+        tft.print("Temp\nHum");
+        newCursor(1, ST7735_GREEN, 64, 0);
+        tft.print(_data[dataTypes::TEMP1]);
+        newCursor(1, 0xFFFFFF, 94, 8);
+        tft.print(_data[dataTypes::TEMP2]);
+        newCursor(1, ST7735_GREEN, 64, 16);
+        tft.print(_data[dataTypes::HUM1]);
+        newCursor(1, 0xFFFFFF, 94, 24);
+        tft.print(_data[dataTypes::HUM2]);
+        
+        _min = graphData[currGraph][0];
+        _max = graphData[currGraph][0];
+        for(int i = 1; i<graphData[currGraph].size(); i++)
+        {
+          if(_min > graphData[currGraph][i]){
+            _min = graphData[currGraph][i];
+          }
+          if(_max < graphData[currGraph][i]){
+            _max = graphData[currGraph][i];
+          }
+        }
+        for(int i = 1; i<graphData[currGraph-2].size(); i++)
+        {
+          if(_min > graphData[currGraph-2][i]){
+            _min = graphData[currGraph-2][i];
+          }
+          if(_max < graphData[currGraph-2][i]){
+            _max = graphData[currGraph-2][i];
+          }
+        }
+        float diff = _max-_min;
+        float scale = 10; //10 pixels per degree
+        float minTempDelta = 6.5;
+        //A new scale is calculated if the difference is larger than the minTempDelta
+        if(diff > minTempDelta){
+          scale = minTempDelta*scale/diff;
+        }
+        int lastY = 0;
+        for(int i = 0; i<graphData[currGraph].size(); i++){
+          int x = 124 - i;
+          //Calculates the position on the temperature interval and then centeres the graph
+          int y = 110 - (graphData[currGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
+          float l = lastY - y;
+          lastY = y;
+          l = l<0 ? floor(l) : l;
+          if(i == 0 || (int)l == 0){
+            tft.drawPixel(x, y, 0xFFFFFF);  
+          } else {
+            tft.drawFastVLine(x, y, l, 0xFFFFFF);
+          }
+        }
+        for(int i = 0; i<graphData[currGraph-2].size(); i++){
+          int x = 124 - i;
+          //Calculates the position on the temperature interval and then centeres the graph
+          int y = 110 - (graphData[currGraph-2][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
+          float l = lastY - y;
+          lastY = y;
+          l = l<0 ? floor(l) : l;
+          if(i == 0 || (int)l == 0){
+            tft.drawPixel(x, y, ST7735_GREEN);  
+          } else {
+            tft.drawFastVLine(x, y, l, ST7735_GREEN);
+          }
         }
       }
-      float diff = _max-_min;
-      float scale = 10; //10 pixels per degree
-      float minTempDelta = 6.5;
-      //A new scale is calculated if the difference is larger than the minTempDelta
-      if(diff > minTempDelta){
-        scale = minTempDelta*scale/diff;
+      
+      newCursor(1, 0xFFFFFF, 0, 35);
+      //If only graph is drawn, write text for one, else for two
+      if(whichGraph != 42){
+        writeText(String(graphNames[whichGraph]), 0xFFFFFF);
+      } else {
+        writeText(String(graphNames[currGraph-2][0]) + String(graphNames[currGraph-2][1]) + " ", ST7735_GREEN);
+        writeText(String(graphNames[currGraph][0]) + String(graphNames[currGraph][1]), 0xFFFFFF);
       }
-      int lastY = 0;
-      for(int i = 0; i<graphData[currGraph].size(); i++){
-        int x = i;
-        //Calculates the position on the temperature interval and then centeres the graph
-        int y = 110 - (graphData[currGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
-        float l = lastY - y;
-        lastY = y;
-        l = l<0 ? floor(l) : l;
-        if(i == 0 || (int)l == 0){
-          tft.drawPixel(x, y, 0xFFFFFF);  
-        }
-        else{
-          tft.drawFastVLine(x, y, l, 0xFFFFFF);
-        }
-      }
+      tft.setCursor(64, 35);
+      writeText("max ", 0xFFFFFF);
+      writeText((currGraph == dataTypes::EARTH2) ? String((int)_max) : String(_max), ST7735_GREEN);
+      tft.setCursor(64, 112);
+      writeText("min ", 0xFFFFFF);
+      writeText((currGraph == dataTypes::EARTH2) ? String((int)_min) : String(_min), ST7735_GREEN);
+    } else {
       newCursor(1, 0xFFFFFF, 0, 35);
       writeText(String(graphNames[currGraph]), ST7735_GREEN);
       tft.setCursor(64, 35);
-      writeText("max ", 0xFFFFFF);
-      writeText(String(_max), ST7735_GREEN);
+      writeText("max NaN", 0xFFFFFF);
       tft.setCursor(64, 112);
-      tft.print("min ");
-      writeText(String(_min), ST7735_GREEN);
+      tft.print("min NaN");
     }
     //Bottom text
     newCursor(1, 0xFFFFFF, 4, 120);
@@ -264,11 +346,11 @@ void loop(void) {
     //Serial.println("5 seconds has elapsed");
 
     for(int i = 0; i<5; i++){
-      graphData[i].push_back(_data[i]);
-    }
-    if(graphData[0].size() > 120){
-      for(int i = 0; i<5; i++){
-        graphData[i].erase(graphData[i].begin());
+      if(!graphData[i].empty() || _data[i] != 0){
+        graphData[i].insert(graphData[i].begin(), _data[i]);  
+      }
+      if(graphData[i].size() > 120){
+        graphData[i].erase(graphData[i].end() - 1);
       }
     }
     if(currScreen == screens::WEATHER) {
@@ -279,13 +361,12 @@ void loop(void) {
   if(leftButton.onPressed()){
     currScreen = screens::MSG;
     updateScreen();
-  }
+  } 
   else if(middleButton.onPressed()) {
     if(currScreen == screens::WEATHER){
-      currGraph = (currGraph == dataTypes::EARTH2 ? dataTypes::TEMP1 : currGraph+1);
+      currGraph = (currGraph == dataTypes::EARTH2 ? dataTypes::TEMP2 : currGraph+1);
       updateScreen();
-    }
-    else{
+    } else {
       currScreen = screens::WEATHER;
       updateScreen();
     }
