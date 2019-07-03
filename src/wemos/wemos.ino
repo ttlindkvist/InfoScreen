@@ -50,8 +50,7 @@ void setup() {
 }
 
 void loop() {
-  // Wait a few seconds between measurements.
-  delay(2000);
+  
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   float h = dht.readHumidity();
@@ -70,7 +69,7 @@ void loop() {
   float hif = dht.computeHeatIndex(f, h);
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(t, h, false);
-
+/*
   Serial.print(F("Humidity: "));
   Serial.print(h);
   Serial.print(F("%  Temperature: "));
@@ -82,7 +81,7 @@ void loop() {
   Serial.print(F("°C "));
   Serial.print(hif);
   Serial.println(F("°F"));
-
+*/
   WiFiClient client;
 
   Serial.printf("\n[Connecting to %s ... ", host);
@@ -91,7 +90,7 @@ void loop() {
     Serial.println("connected]");
 
     Serial.println("[Sending a request]");
-    client.print(String("GET /send?temp=") + String(t) + "&hum=" + String(h) + " HTTP/1.1\r\n" +
+    client.print(String("GET /send?wTemp=") + String(t) + "&wHum=" + String(h) + " HTTP/1.1\r\n" +
                  "Host: " + host + "\r\n" +
                  "Connection: close\r\n" +
                  "\r\n"
