@@ -63,6 +63,30 @@ void writeText(String t, uint16_t c){
   tft.print(t);
 }
 
+const int graphHeight = 65;
+void printGraph(std::vector<float> &dataPoints, float _min, float _max, uint16_t c){
+  int lastY = 0;
+  float diff = _max-_min;
+  float scale = 10; //10 pixels per degree
+  //A new scale is calculated if the difference is larger than the minTempDelta
+  if(diff > graphHeight/scale){
+    scale = graphHeight/diff;
+  }
+  for(int i = 0; i<dataPoints.size(); i++){
+    int x = 124 - i;
+    //Calculates the position on the temperature interval and then centeres the graph
+    int y = 110 - (dataPoints[i]-_min)*scale - (graphHeight/2-diff*scale/2);
+    float l = lastY - y;
+    lastY = y;
+    l = l<0 ? floor(l) : l;
+    if(i == 0 || (int)l == 0){
+      tft.drawPixel(x, y, c);  
+    } else {
+      tft.drawFastVLine(x, y, l, c);
+    }
+  }
+}
+
 void updateScreen() {
   if(currScreen == screens::MSG) {
     tft.fillScreen(ST77XX_BLACK);
@@ -104,28 +128,8 @@ void updateScreen() {
             _max = graphData[whichGraph][i];
           }
         }
-        float diff = _max-_min;
-        float scale = 10; //10 pixels per degree
-        float minTempDelta = 6.5;
-        //A new scale is calculated if the difference is larger than the minTempDelta
-        if(diff > minTempDelta){
-          scale = minTempDelta*scale/diff;
-        }
-        int lastY = 0;
-  
-        for(int i = 0; i<graphData[whichGraph].size(); i++){
-          int x = 124 - i;
-          //Calculates the position on the temperature interval and then centeres the graph
-          int y = 110 - (graphData[whichGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
-          float l = lastY - y;
-          lastY = y;
-          l = l<0 ? floor(l) : l;
-          if(i == 0 || (int)l == 0){
-            tft.drawPixel(x, y, 0xFFFFFF);  
-          } else {
-            tft.drawFastVLine(x, y, l, 0xFFFFFF);
-          }
-        }
+        printGraph(graphData[whichGraph], _min, _max, 0xFFFFFF);
+        
       } else { /*DRAWING THE DOUBLE GRAPH*/
         newCursor(2, ST7735_GREEN, 0, 0);
         tft.print("Temp\nHum");
@@ -149,7 +153,7 @@ void updateScreen() {
             _max = graphData[currGraph][i];
           }
         }
-        for(int i = 1; i<graphData[currGraph-2].size(); i++)
+        for(int i = 0; i<graphData[currGraph-2].size(); i++)
         {
           if(_min > graphData[currGraph-2][i]){
             _min = graphData[currGraph-2][i];
@@ -158,40 +162,8 @@ void updateScreen() {
             _max = graphData[currGraph-2][i];
           }
         }
-        float diff = _max-_min;
-        float scale = 10; //10 pixels per degree
-        float minTempDelta = 6.5;
-        //A new scale is calculated if the difference is larger than the minTempDelta
-        if(diff > minTempDelta){
-          scale = minTempDelta*scale/diff;
-        }
-        int lastY = 0;
-        for(int i = 0; i<graphData[currGraph].size(); i++){
-          int x = 124 - i;
-          //Calculates the position on the temperature interval and then centeres the graph
-          int y = 110 - (graphData[currGraph][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
-          float l = lastY - y;
-          lastY = y;
-          l = l<0 ? floor(l) : l;
-          if(i == 0 || (int)l == 0){
-            tft.drawPixel(x, y, 0xFFFFFF);  
-          } else {
-            tft.drawFastVLine(x, y, l, 0xFFFFFF);
-          }
-        }
-        for(int i = 0; i<graphData[currGraph-2].size(); i++){
-          int x = 124 - i;
-          //Calculates the position on the temperature interval and then centeres the graph
-          int y = 110 - (graphData[currGraph-2][i]-_min)*scale - (minTempDelta*10/2-diff*scale/2);
-          float l = lastY - y;
-          lastY = y;
-          l = l<0 ? floor(l) : l;
-          if(i == 0 || (int)l == 0){
-            tft.drawPixel(x, y, ST7735_GREEN);  
-          } else {
-            tft.drawFastVLine(x, y, l, ST7735_GREEN);
-          }
-        }
+        printGraph(graphData[currGraph], _min, _max, 0xFFFFFF);
+        printGraph(graphData[currGraph-2], _min, _max, ST7735_GREEN);
       }
       
       newCursor(1, 0xFFFFFF, 0, 35);
@@ -276,11 +248,14 @@ void handleData() {
     localMsg = server.arg("msg");
     Serial.print("Received msg: ");
     Serial.println(localMsg);
-    updateScreen();
+    if(currScreen == screens::MSG){
+      updateScreen();
+    }
   }
   server.send(200, "text/plain", _data[dataTypes::TEMP1] + String(", ") + _data[dataTypes::HUM1] + String(", ") + localMsg);
 }
 
+//Here goes some sort of web interface
 void handleRoot() {
   server.send(200, "text/plain", "hello from TTGO!");
 }
