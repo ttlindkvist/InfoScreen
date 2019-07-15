@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <math.h>
 
-const char* ssid = "WIM";
-const char* password = "mercedeS24";
+const char* ssid = "Interwebs";
+const char* password = "Internet";
 
 WebServer server(80);
 
@@ -131,6 +131,7 @@ void updateScreen() {
         printGraph(graphData[whichGraph], _min, _max, 0xFFFFFF);
         
       } else { /*DRAWING THE DOUBLE GRAPH*/
+        //Print current temperatures and humidities
         newCursor(2, ST7735_GREEN, 0, 0);
         tft.print("Temp\nHum");
         newCursor(1, ST7735_GREEN, 64, 0);
@@ -141,7 +142,8 @@ void updateScreen() {
         tft.print(_data[dataTypes::HUM1]);
         newCursor(1, 0xFFFFFF, 94, 24);
         tft.print(_data[dataTypes::HUM2]);
-        
+
+        //Find the minimum and maximum value of the two datasets by iterating through and comparing
         _min = graphData[currGraph][0];
         _max = graphData[currGraph][0];
         for(int i = 1; i<graphData[currGraph].size(); i++)
@@ -167,13 +169,14 @@ void updateScreen() {
       }
       
       newCursor(1, 0xFFFFFF, 0, 35);
-      //If only graph is drawn, write text for one, else for two
+      //If only graph is drawn, print text for one, else for two
       if(whichGraph != 42){
         writeText(String(graphNames[whichGraph]), 0xFFFFFF);
       } else {
         writeText(String(graphNames[currGraph-2][0]) + String(graphNames[currGraph-2][1]) + " ", ST7735_GREEN);
         writeText(String(graphNames[currGraph][0]) + String(graphNames[currGraph][1]), 0xFFFFFF);
       }
+      //Print the found minimum and maximum value - and if the current graph is the soil humidity, throw away the decimals
       tft.setCursor(64, 35);
       writeText("max ", 0xFFFFFF);
       writeText((currGraph == dataTypes::EARTH2) ? String((int)_max) : String(_max), ST7735_GREEN);
@@ -199,7 +202,7 @@ void updateScreen() {
     newCursor(2, ST7735_GREEN, 0, 0);
     tft.print("MISC INFO\n");
     tft.setTextSize(1);
-    tft.print("\nConnected to: ");
+    tft.print("\nSSID: ");
     writeText(String(ssid), 0xFFFFFF);
     writeText("\n\nIP: ", ST7735_GREEN);
     tft.setTextColor(0xFFFFFF);
@@ -255,9 +258,14 @@ void handleData() {
   server.send(200, "text/plain", _data[dataTypes::TEMP1] + String(", ") + _data[dataTypes::HUM1] + String(", ") + localMsg);
 }
 
-//Here goes some sort of web interface
 void handleRoot() {
-  server.send(200, "text/plain", "hello from TTGO!");
+  //Very basic input field and button where a message can be sent to the device
+  String site = "<form action=\"/send\">";
+  site += "Enter a message:<br>";
+  site += "<input type=\"text\" name=\"msg\" value=\"Write here\"><br>";
+  site += "<input type=\"submit\" value=\"Submit\">";
+  site += "</form>";
+  server.send(200, "text/html", site);
 }
 
 void initServer() {
@@ -316,10 +324,10 @@ void setup(void) {
 }
 void loop(void) {
   server.handleClient();
-
+  
+  //Every 5 seconds the timer restarts
   if(timer.onRestart()) {
-    //Serial.println("5 seconds has elapsed");
-
+    //Save current data to the datasets
     for(int i = 0; i<5; i++){
       if(!graphData[i].empty() || _data[i] != 0){
         graphData[i].insert(graphData[i].begin(), _data[i]);  

@@ -16,10 +16,10 @@ DHT dht(DHTPIN, DHTTYPE);
 
 
 //HTTP related
-const char* ssid = "WIM";
-const char* password = "mercedeS24";
+char* ssid = "Interwebs";
+char* password = "Internet";
 
-const char* host = "192.168.2.66";
+const char* host = "192.168.43.203";
 
 
 void setup() {
