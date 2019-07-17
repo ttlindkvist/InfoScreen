@@ -3,7 +3,6 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
-#include <ESPmDNS.h> //Figure something out here
 #include <vector>
 #include <algorithm>
 #include <math.h>
@@ -284,11 +283,6 @@ void initServer() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  //What is happening?
-  if (MDNS.begin("esp32screen")) {
-    Serial.println("MDNS responder started");
-  }
-
   //Setup different functions for different server-calls
   server.on("/", handleRoot);
   server.on("/send", handleData);
@@ -296,8 +290,6 @@ void initServer() {
   
   server.begin();
   Serial.println("HTTP server started");
-
-  MDNS.addService("http", "tcp", 80);
 }
 
 void setup(void) {
