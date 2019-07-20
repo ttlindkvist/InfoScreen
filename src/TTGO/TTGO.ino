@@ -38,12 +38,12 @@ RBD::Button leftButton(35);
 RBD::Button middleButton(34);
 RBD::Button rightButton(39);
 
-//Screen related
+//Screen and graph related
 enum screens {MSG, WEATHER, MISC};
 int currScreen = screens::WEATHER;
 enum dataTypes {TEMP1, HUM1, TEMP2, HUM2, EARTH2};
 int currGraph = dataTypes::TEMP2;
-String graphNames[5] = {"wTemp", "wHum", "sTemp", "sHum", "sEarth"};
+const String graphNames[5] = {"wTemp", "wHum", "sTemp", "sHum", "sEarth"};
 
 float _data[5] = {0, 0, 0, 0, 0};
 float _lastData[5]= {0, 0, 0, 0, 0};
@@ -63,7 +63,7 @@ void writeText(String t, uint16_t c){
 }
 
 const int graphHeight = 65;
-void printGraph(std::vector<float> &dataPoints, float _min, float _max, uint16_t c){
+void printGraph(const std::vector<float> &dataPoints, float _min, float _max, uint16_t c){
   int lastY = 0;
   float diff = _max-_min;
   float scale = 10; //10 pixels per degree
@@ -89,10 +89,12 @@ void printGraph(std::vector<float> &dataPoints, float _min, float _max, uint16_t
 void updateScreen() {
   if(currScreen == screens::MSG) {
     tft.fillScreen(ST77XX_BLACK);
+    
     newCursor(2, ST7735_GREEN, 0, 0);
     tft.print("MESSAGE\n");
     tft.setTextSize(1);
     writeText(localMsg, 0xFFFFFF);
+    
     //Bottom text
     newCursor(1, ST7735_GREEN, 4, 120);
     tft.print(" msg    ");
@@ -105,9 +107,9 @@ void updateScreen() {
     if((currGraph == dataTypes::EARTH2) ? !graphData[currGraph].empty() : (!graphData[currGraph].empty() || !graphData[currGraph-2].empty())){
       float _min = 0;
       float _max = 0;
-      //Returns 42 if two graphs should be drawn, else returns the one graph that should be drawn
-      int whichGraph = currGraph == dataTypes::EARTH2 ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph-2].empty() ? 42 : (!graphData[currGraph].empty() ? currGraph : currGraph-2));
-      if(whichGraph != 42){
+      //Returns -1 if two graphs should be drawn, else returns the index of the one graph that should be drawn
+      int whichGraph = (currGraph == dataTypes::EARTH2) ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph-2].empty() ? -1 : (!graphData[currGraph].empty() ? currGraph : currGraph-2));
+      if(whichGraph != -1){
         newCursor(2, ST7735_GREEN, 0, 0);
         tft.print("Temp ");
         tft.print((!graphData[dataTypes::TEMP2].empty()) ? _data[dataTypes::TEMP2] : _data[dataTypes::TEMP1]);
@@ -169,7 +171,7 @@ void updateScreen() {
       
       newCursor(1, 0xFFFFFF, 0, 35);
       //If only graph is drawn, print text for one, else for two
-      if(whichGraph != 42){
+      if(whichGraph != -1){
         writeText(String(graphNames[whichGraph]), 0xFFFFFF);
       } else {
         writeText(String(graphNames[currGraph-2][0]) + String(graphNames[currGraph-2][1]) + " ", ST7735_GREEN);
@@ -198,6 +200,7 @@ void updateScreen() {
   }
   else if(currScreen == screens::MISC) {
     tft.fillScreen(ST77XX_BLACK);
+    
     newCursor(2, ST7735_GREEN, 0, 0);
     tft.print("MISC INFO\n");
     tft.setTextSize(1);
