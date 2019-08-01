@@ -119,8 +119,8 @@ void printGraph(const std::vector<float> &dataPoints, float _min, float _max, ui
     }
   }
 }
-void min_max(const std::vector<float> &list, float &minVal, float &maxVal){
-  if(list.empty()){
+void min_max(const std::vector<float> &list, float &minVal, float &maxVal) {
+  if (list.empty()) {
     Serial.println("min_max error - empty vector");
     minVal = 0;
     maxVal = 0;
@@ -128,7 +128,7 @@ void min_max(const std::vector<float> &list, float &minVal, float &maxVal){
   }
   minVal = list[0];
   maxVal = list[0];
-  for(const float &i : list){
+  for (const float &i : list) {
     minVal = min(i, minVal);
     maxVal = max(i, maxVal);
   }
@@ -138,31 +138,21 @@ void showWeather() {
 
   //Print the last measurements as a graph
   if ((currGraph == dataTypes::EARTH2) ? !graphData[currGraph].empty() : (!graphData[currGraph].empty() || !graphData[currGraph - 2].empty())) {
-    float _min = 0;
-    float _max = 0;
+    float minValue = 0, maxValue = 0;
+
     //Returns -1 if two graphs should be drawn, else returns the index of the one graph that should be drawn
     int whichGraph = (currGraph == dataTypes::EARTH2) ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph - 2].empty() ? -1 : (!graphData[currGraph].empty() ? currGraph : currGraph - 2));
+    
     if (whichGraph != -1) {
       newCursor(2, ST7735_GREEN, 0, 0);
       tft.print("Temp ");
       tft.print((!graphData[dataTypes::TEMP2].empty()) ? data[dataTypes::TEMP2] : data[dataTypes::TEMP1]);
       tft.print("\n");
-
       tft.print("Hum  ");
       tft.print((!graphData[dataTypes::HUM2].empty()) ? data[dataTypes::HUM2] : data[dataTypes::HUM1]);
 
-      _min = graphData[whichGraph][0];
-      _max = graphData[whichGraph][0];
-      for (int i = 1; i < graphData[whichGraph].size(); i++)
-      {
-        if (_min > graphData[whichGraph][i]) {
-          _min = graphData[whichGraph][i];
-        }
-        if (_max < graphData[whichGraph][i]) {
-          _max = graphData[whichGraph][i];
-        }
-      }
-      printGraph(graphData[whichGraph], _min, _max, 0xFFFFFF);
+      min_max(graphData[whichGraph], minValue, maxValue);
+      printGraph(graphData[whichGraph], minValue, maxValue, 0xFFFFFF);
 
     } else { /*DRAWING THE DOUBLE GRAPH*/
       //Print current temperatures and humidities
@@ -177,29 +167,14 @@ void showWeather() {
       newCursor(1, 0xFFFFFF, 94, 24);
       tft.print(data[dataTypes::HUM2]);
 
-      //Find the minimum and maximum value of the two datasets by iterating through and comparing
-      _min = graphData[currGraph][0];
-      _max = graphData[currGraph][0];
-      for (int i = 1; i < graphData[currGraph].size(); i++)
-      {
-        if (_min > graphData[currGraph][i]) {
-          _min = graphData[currGraph][i];
-        }
-        if (_max < graphData[currGraph][i]) {
-          _max = graphData[currGraph][i];
-        }
-      }
-      for (int i = 0; i < graphData[currGraph - 2].size(); i++)
-      {
-        if (_min > graphData[currGraph - 2][i]) {
-          _min = graphData[currGraph - 2][i];
-        }
-        if (_max < graphData[currGraph - 2][i]) {
-          _max = graphData[currGraph - 2][i];
-        }
-      }
-      printGraph(graphData[currGraph], _min, _max, 0xFFFFFF);
-      printGraph(graphData[currGraph - 2], _min, _max, ST7735_GREEN);
+      float minValue1 = 0, maxValue1 = 0, minValue2 = 0, maxValue2 = 0;
+      min_max(graphData[currGraph], minValue1, maxValue1);
+      min_max(graphData[currGraph - 2], minValue2, maxValue2);
+      minValue = min(minValue1, minValue2);
+      maxValue = max(maxValue1, maxValue2);
+
+      printGraph(graphData[currGraph], minValue, maxValue, 0xFFFFFF);
+      printGraph(graphData[currGraph - 2], minValue, maxValue, ST7735_GREEN);
     }
 
     newCursor(1, 0xFFFFFF, 0, 35);
@@ -213,10 +188,10 @@ void showWeather() {
     //Print the found minimum and maximum value - and if the current graph is the soil humidity, throw away the decimals
     tft.setCursor(64, 35);
     writeText("max ", 0xFFFFFF);
-    writeText((currGraph == dataTypes::EARTH2) ? String((int)_max) : String(_max), ST7735_GREEN);
+    writeText((currGraph == dataTypes::EARTH2) ? String((int)maxValue) : String(maxValue), ST7735_GREEN);
     tft.setCursor(64, 112);
     writeText("min ", 0xFFFFFF);
-    writeText((currGraph == dataTypes::EARTH2) ? String((int)_min) : String(_min), ST7735_GREEN);
+    writeText((currGraph == dataTypes::EARTH2) ? String((int)minValue) : String(minValue), ST7735_GREEN);
   } else {
     newCursor(1, 0xFFFFFF, 0, 35);
     writeText(String(graphNames[currGraph]), ST7735_GREEN);
