@@ -44,9 +44,9 @@ int currScreen = screens::WEATHER;
 enum dataTypes {TEMP1, HUM1, TEMP2, HUM2, EARTH2};
 int currGraph = dataTypes::TEMP2;
 const String graphNames[5] = {"wTemp", "wHum", "sTemp", "sHum", "sEarth"};
+const int graphHeight = 65;
 
-float _data[5] = {0, 0, 0, 0, 0};
-float _lastData[5]= {0, 0, 0, 0, 0};
+float data[5] = {0, 0, 0, 0, 0};
 std::vector<float> graphData[5];
 
 String localMsg;
@@ -55,169 +55,197 @@ String lastMsg;
 void newCursor(int s, uint16_t c, int x, int y) {
   tft.setTextSize(s);
   tft.setTextColor(c);
-  tft.setCursor(x,y);
+  tft.setCursor(x, y);
 }
-void writeText(String t, uint16_t c){
+void writeText(String t, uint16_t c) {
   tft.setTextColor(c);
   tft.print(t);
 }
 
-const int graphHeight = 65;
-void printGraph(const std::vector<float> &dataPoints, float _min, float _max, uint16_t c){
+void showMessage() {
+  tft.fillScreen(ST77XX_BLACK);
+
+  newCursor(2, ST7735_GREEN, 0, 0);
+  tft.print("MESSAGE\n");
+  tft.setTextSize(1);
+  writeText(localMsg, 0xFFFFFF);
+
+  //Bottom text
+  newCursor(1, ST7735_GREEN, 4, 120);
+  tft.print(" msg    ");
+  writeText("wthr   misc", 0xFFFFFF);
+}
+void showMisc() {
+  tft.fillScreen(ST77XX_BLACK);
+
+  newCursor(2, ST7735_GREEN, 0, 0);
+  tft.print("MISC INFO\n");
+  tft.setTextSize(1);
+  tft.print("\nSSID: ");
+  writeText(String(ssid), 0xFFFFFF);
+  writeText("\n\nIP: ", ST7735_GREEN);
+  tft.setTextColor(0xFFFFFF);
+  tft.print(WiFi.localIP());
+  writeText("\n\nUpdate freq: ", ST7735_GREEN);
+  writeText("0.2 Hz", 0xFFFFFF);
+  writeText("\n\nMade by: ", ST7735_GREEN);
+  writeText("TTL", 0xFFFFFF);
+
+  //Bottom text
+  newCursor(1, 0xFFFFFF, 4, 120);
+  tft.print(" msg    wthr   ");
+  writeText("misc", ST7735_GREEN);
+}
+
+void printGraph(const std::vector<float> &dataPoints, float _min, float _max, uint16_t c) {
   int lastY = 0;
-  float diff = _max-_min;
+  float diff = _max - _min;
   float scale = 10; //10 pixels per degree
   //A new scale is calculated if the difference is larger than the minTempDelta
-  if(diff > graphHeight/scale){
-    scale = graphHeight/diff;
+  if (diff > graphHeight / scale) {
+    scale = graphHeight / diff;
   }
-  for(int i = 0; i<dataPoints.size(); i++){
+  for (int i = 0; i < dataPoints.size(); i++) {
     int x = 124 - i;
     //Calculates the position on the temperature interval and then centeres the graph
-    int y = 110 - (dataPoints[i]-_min)*scale - (graphHeight/2-diff*scale/2);
+    int y = 110 - (dataPoints[i] - _min) * scale - (graphHeight / 2 - diff * scale / 2);
     float l = lastY - y;
     lastY = y;
-    l = l<0 ? floor(l) : l;
-    if(i == 0 || (int)l == 0){
-      tft.drawPixel(x, y, c);  
+    l = l < 0 ? floor(l) : l;
+    if (i == 0 || (int)l == 0) {
+      tft.drawPixel(x, y, c);
     } else {
       tft.drawFastVLine(x, y, l, c);
     }
   }
 }
-
-void updateScreen() {
-  if(currScreen == screens::MSG) {
-    tft.fillScreen(ST77XX_BLACK);
-    
-    newCursor(2, ST7735_GREEN, 0, 0);
-    tft.print("MESSAGE\n");
-    tft.setTextSize(1);
-    writeText(localMsg, 0xFFFFFF);
-    
-    //Bottom text
-    newCursor(1, ST7735_GREEN, 4, 120);
-    tft.print(" msg    ");
-    writeText("wthr   misc", 0xFFFFFF);
+void min_max(const std::vector<float> &list, float &minVal, float &maxVal){
+  if(list.empty()){
+    Serial.println("min_max error - empty vector");
+    minVal = 0;
+    maxVal = 0;
+    return;
   }
-  else if(currScreen == screens::WEATHER) {
-    tft.fillScreen(ST77XX_BLACK);
-    
-    //Print the last measurements as a graph
-    if((currGraph == dataTypes::EARTH2) ? !graphData[currGraph].empty() : (!graphData[currGraph].empty() || !graphData[currGraph-2].empty())){
-      float _min = 0;
-      float _max = 0;
-      //Returns -1 if two graphs should be drawn, else returns the index of the one graph that should be drawn
-      int whichGraph = (currGraph == dataTypes::EARTH2) ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph-2].empty() ? -1 : (!graphData[currGraph].empty() ? currGraph : currGraph-2));
-      if(whichGraph != -1){
-        newCursor(2, ST7735_GREEN, 0, 0);
-        tft.print("Temp ");
-        tft.print((!graphData[dataTypes::TEMP2].empty()) ? _data[dataTypes::TEMP2] : _data[dataTypes::TEMP1]);
-        tft.print("\n");
-        
-        tft.print("Hum  ");
-        tft.print((!graphData[dataTypes::HUM2].empty()) ? _data[dataTypes::HUM2] : _data[dataTypes::HUM1]);
-        
-        _min = graphData[whichGraph][0];
-        _max = graphData[whichGraph][0];
-        for(int i = 1; i<graphData[whichGraph].size(); i++)
-        {
-          if(_min > graphData[whichGraph][i]){
-            _min = graphData[whichGraph][i];
-          }
-          if(_max < graphData[whichGraph][i]){
-            _max = graphData[whichGraph][i];
-          }
-        }
-        printGraph(graphData[whichGraph], _min, _max, 0xFFFFFF);
-        
-      } else { /*DRAWING THE DOUBLE GRAPH*/
-        //Print current temperatures and humidities
-        newCursor(2, ST7735_GREEN, 0, 0);
-        tft.print("Temp\nHum");
-        newCursor(1, ST7735_GREEN, 64, 0);
-        tft.print(_data[dataTypes::TEMP1]);
-        newCursor(1, 0xFFFFFF, 94, 8);
-        tft.print(_data[dataTypes::TEMP2]);
-        newCursor(1, ST7735_GREEN, 64, 16);
-        tft.print(_data[dataTypes::HUM1]);
-        newCursor(1, 0xFFFFFF, 94, 24);
-        tft.print(_data[dataTypes::HUM2]);
+  minVal = list[0];
+  maxVal = list[0];
+  for(const float &i : list){
+    minVal = min(i, minVal);
+    maxVal = max(i, maxVal);
+  }
+}
+void showWeather() {
+  tft.fillScreen(ST77XX_BLACK);
 
-        //Find the minimum and maximum value of the two datasets by iterating through and comparing
-        _min = graphData[currGraph][0];
-        _max = graphData[currGraph][0];
-        for(int i = 1; i<graphData[currGraph].size(); i++)
-        {
-          if(_min > graphData[currGraph][i]){
-            _min = graphData[currGraph][i];
-          }
-          if(_max < graphData[currGraph][i]){
-            _max = graphData[currGraph][i];
-          }
+  //Print the last measurements as a graph
+  if ((currGraph == dataTypes::EARTH2) ? !graphData[currGraph].empty() : (!graphData[currGraph].empty() || !graphData[currGraph - 2].empty())) {
+    float _min = 0;
+    float _max = 0;
+    //Returns -1 if two graphs should be drawn, else returns the index of the one graph that should be drawn
+    int whichGraph = (currGraph == dataTypes::EARTH2) ? currGraph : (!graphData[currGraph].empty() && !graphData[currGraph - 2].empty() ? -1 : (!graphData[currGraph].empty() ? currGraph : currGraph - 2));
+    if (whichGraph != -1) {
+      newCursor(2, ST7735_GREEN, 0, 0);
+      tft.print("Temp ");
+      tft.print((!graphData[dataTypes::TEMP2].empty()) ? data[dataTypes::TEMP2] : data[dataTypes::TEMP1]);
+      tft.print("\n");
+
+      tft.print("Hum  ");
+      tft.print((!graphData[dataTypes::HUM2].empty()) ? data[dataTypes::HUM2] : data[dataTypes::HUM1]);
+
+      _min = graphData[whichGraph][0];
+      _max = graphData[whichGraph][0];
+      for (int i = 1; i < graphData[whichGraph].size(); i++)
+      {
+        if (_min > graphData[whichGraph][i]) {
+          _min = graphData[whichGraph][i];
         }
-        for(int i = 0; i<graphData[currGraph-2].size(); i++)
-        {
-          if(_min > graphData[currGraph-2][i]){
-            _min = graphData[currGraph-2][i];
-          }
-          if(_max < graphData[currGraph-2][i]){
-            _max = graphData[currGraph-2][i];
-          }
+        if (_max < graphData[whichGraph][i]) {
+          _max = graphData[whichGraph][i];
         }
-        printGraph(graphData[currGraph], _min, _max, 0xFFFFFF);
-        printGraph(graphData[currGraph-2], _min, _max, ST7735_GREEN);
       }
-      
-      newCursor(1, 0xFFFFFF, 0, 35);
-      //If only graph is drawn, print text for one, else for two
-      if(whichGraph != -1){
-        writeText(String(graphNames[whichGraph]), 0xFFFFFF);
-      } else {
-        writeText(String(graphNames[currGraph-2][0]) + String(graphNames[currGraph-2][1]) + " ", ST7735_GREEN);
-        writeText(String(graphNames[currGraph][0]) + String(graphNames[currGraph][1]), 0xFFFFFF);
+      printGraph(graphData[whichGraph], _min, _max, 0xFFFFFF);
+
+    } else { /*DRAWING THE DOUBLE GRAPH*/
+      //Print current temperatures and humidities
+      newCursor(2, ST7735_GREEN, 0, 0);
+      tft.print("Temp\nHum");
+      newCursor(1, ST7735_GREEN, 64, 0);
+      tft.print(data[dataTypes::TEMP1]);
+      newCursor(1, 0xFFFFFF, 94, 8);
+      tft.print(data[dataTypes::TEMP2]);
+      newCursor(1, ST7735_GREEN, 64, 16);
+      tft.print(data[dataTypes::HUM1]);
+      newCursor(1, 0xFFFFFF, 94, 24);
+      tft.print(data[dataTypes::HUM2]);
+
+      //Find the minimum and maximum value of the two datasets by iterating through and comparing
+      _min = graphData[currGraph][0];
+      _max = graphData[currGraph][0];
+      for (int i = 1; i < graphData[currGraph].size(); i++)
+      {
+        if (_min > graphData[currGraph][i]) {
+          _min = graphData[currGraph][i];
+        }
+        if (_max < graphData[currGraph][i]) {
+          _max = graphData[currGraph][i];
+        }
       }
-      //Print the found minimum and maximum value - and if the current graph is the soil humidity, throw away the decimals
-      tft.setCursor(64, 35);
-      writeText("max ", 0xFFFFFF);
-      writeText((currGraph == dataTypes::EARTH2) ? String((int)_max) : String(_max), ST7735_GREEN);
-      tft.setCursor(64, 112);
-      writeText("min ", 0xFFFFFF);
-      writeText((currGraph == dataTypes::EARTH2) ? String((int)_min) : String(_min), ST7735_GREEN);
-    } else {
-      newCursor(1, 0xFFFFFF, 0, 35);
-      writeText(String(graphNames[currGraph]), ST7735_GREEN);
-      tft.setCursor(64, 35);
-      writeText("max NaN", 0xFFFFFF);
-      tft.setCursor(64, 112);
-      tft.print("min NaN");
+      for (int i = 0; i < graphData[currGraph - 2].size(); i++)
+      {
+        if (_min > graphData[currGraph - 2][i]) {
+          _min = graphData[currGraph - 2][i];
+        }
+        if (_max < graphData[currGraph - 2][i]) {
+          _max = graphData[currGraph - 2][i];
+        }
+      }
+      printGraph(graphData[currGraph], _min, _max, 0xFFFFFF);
+      printGraph(graphData[currGraph - 2], _min, _max, ST7735_GREEN);
     }
-    //Bottom text
-    newCursor(1, 0xFFFFFF, 4, 120);
-    tft.print(" msg    ");
-    writeText("wthr   ", ST7735_GREEN);
-    writeText("misc", 0xFFFFFF);
-  }
-  else if(currScreen == screens::MISC) {
-    tft.fillScreen(ST77XX_BLACK);
-    
-    newCursor(2, ST7735_GREEN, 0, 0);
-    tft.print("MISC INFO\n");
-    tft.setTextSize(1);
-    tft.print("\nSSID: ");
-    writeText(String(ssid), 0xFFFFFF);
-    writeText("\n\nIP: ", ST7735_GREEN);
-    tft.setTextColor(0xFFFFFF);
-    tft.print(WiFi.localIP());
-    writeText("\n\nUpdate freq: ", ST7735_GREEN);
-    writeText("0.2 Hz", 0xFFFFFF);
-    writeText("\n\nMade by: ", ST7735_GREEN);
-    writeText("TTL", 0xFFFFFF);
 
-    //Bottom text
-    newCursor(1, 0xFFFFFF, 4, 120);
-    tft.print(" msg    wthr   ");
-    writeText("misc", ST7735_GREEN);
+    newCursor(1, 0xFFFFFF, 0, 35);
+    //If only graph is drawn, print text for one, else for two
+    if (whichGraph != -1) {
+      writeText(String(graphNames[whichGraph]), 0xFFFFFF);
+    } else {
+      writeText(String(graphNames[currGraph - 2][0]) + String(graphNames[currGraph - 2][1]) + " ", ST7735_GREEN);
+      writeText(String(graphNames[currGraph][0]) + String(graphNames[currGraph][1]), 0xFFFFFF);
+    }
+    //Print the found minimum and maximum value - and if the current graph is the soil humidity, throw away the decimals
+    tft.setCursor(64, 35);
+    writeText("max ", 0xFFFFFF);
+    writeText((currGraph == dataTypes::EARTH2) ? String((int)_max) : String(_max), ST7735_GREEN);
+    tft.setCursor(64, 112);
+    writeText("min ", 0xFFFFFF);
+    writeText((currGraph == dataTypes::EARTH2) ? String((int)_min) : String(_min), ST7735_GREEN);
+  } else {
+    newCursor(1, 0xFFFFFF, 0, 35);
+    writeText(String(graphNames[currGraph]), ST7735_GREEN);
+    tft.setCursor(64, 35);
+    writeText("max NaN", 0xFFFFFF);
+    tft.setCursor(64, 112);
+    tft.print("min NaN");
+  }
+  //Bottom text
+  newCursor(1, 0xFFFFFF, 4, 120);
+  tft.print(" msg    ");
+  writeText("wthr   ", ST7735_GREEN);
+  writeText("misc", 0xFFFFFF);
+}
+void updateScreen() {
+  switch (currScreen) {
+    case screens::MSG:
+      showMessage();
+      break;
+    case screens::WEATHER:
+      showWeather();
+      break;
+    case screens::MISC:
+      showMisc();
+      break;
+    default:
+      Serial.println("Unknown screen, defaulting to weather");
+      currScreen = screens::WEATHER;
+      updateScreen();
   }
 }
 
@@ -237,27 +265,26 @@ void handleNotFound() {
 }
 
 void handleData() {
-  if(server.args() == 0) {
+  if (server.args() == 0) {
     server.send(200, "text/plain", "You need to include arguments with the data");
     return;
   }
   //Transfer arguments to stored vars
-  for(int i = 0; i<5; i++){
-    if(server.arg(graphNames[i]).length() > 0) {
-      _lastData[i] = _data[dataTypes::TEMP1];
-      _data[i] = server.arg(graphNames[i]).toFloat();
+  for (int i = 0; i < 5; i++) {
+    if (server.arg(graphNames[i]).length() > 0) {
+      data[i] = server.arg(graphNames[i]).toFloat();
     }
   }
-  if(server.arg("msg").length() > 0) {
+  if (server.arg("msg").length() > 0) {
     lastMsg = localMsg;
     localMsg = server.arg("msg");
     Serial.print("Received msg: ");
     Serial.println(localMsg);
-    if(currScreen == screens::MSG){
+    if (currScreen == screens::MSG) {
       updateScreen();
     }
   }
-  server.send(200, "text/plain", _data[dataTypes::TEMP1] + String(", ") + _data[dataTypes::HUM1] + String(", ") + localMsg);
+  server.send(200, "text/plain", data[dataTypes::TEMP1] + String(", ") + data[dataTypes::HUM1] + String(", ") + localMsg);
 }
 
 void handleRoot() {
@@ -290,7 +317,7 @@ void initServer() {
   server.on("/", handleRoot);
   server.on("/send", handleData);
   server.onNotFound(handleNotFound);
-  
+
   server.begin();
   Serial.println("HTTP server started");
 }
@@ -314,42 +341,42 @@ void setup(void) {
   tft.setTextWrap(true);
   tft.setTextSize(1);
   tft.setTextColor(ST7735_GREEN);
-  
+
   tft.print(WiFi.localIP());
 }
 void loop(void) {
   server.handleClient();
-  
+
   //Every 5 seconds the timer restarts
-  if(timer.onRestart()) {
+  if (timer.onRestart()) {
     //Save current data to the datasets
-    for(int i = 0; i<5; i++){
-      if(!graphData[i].empty() || _data[i] != 0){
-        graphData[i].insert(graphData[i].begin(), _data[i]);  
+    for (int i = 0; i < 5; i++) {
+      if (!graphData[i].empty() || data[i] != 0) {
+        graphData[i].insert(graphData[i].begin(), data[i]);
       }
-      if(graphData[i].size() > 120){
+      if (graphData[i].size() > 120) {
         graphData[i].erase(graphData[i].end() - 1);
       }
     }
-    if(currScreen == screens::WEATHER) {
+    if (currScreen == screens::WEATHER) {
       updateScreen();
     }
   }
 
-  if(leftButton.onPressed()){
+  if (leftButton.onPressed()) {
     currScreen = screens::MSG;
     updateScreen();
-  } 
-  else if(middleButton.onPressed()) {
-    if(currScreen == screens::WEATHER){
-      currGraph = (currGraph == dataTypes::EARTH2 ? dataTypes::TEMP2 : currGraph+1);
+  }
+  else if (middleButton.onPressed()) {
+    if (currScreen == screens::WEATHER) {
+      currGraph = (currGraph == dataTypes::EARTH2 ? dataTypes::TEMP2 : currGraph + 1);
       updateScreen();
     } else {
       currScreen = screens::WEATHER;
       updateScreen();
     }
   }
-  else if(rightButton.onPressed()) {
+  else if (rightButton.onPressed()) {
     currScreen = screens::MISC;
     updateScreen();
   }
